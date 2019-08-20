@@ -3,7 +3,7 @@
 
 ### 主要功能
 
-[ ] DBA数据库操作
+*[ ] DBA数据库操作
     *[x] BoltDB
     *[x] MongoDB
     *[ ] MySQL
