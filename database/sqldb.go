@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-type Mysql struct {
+type SqlDB struct {
 	db        *sql.DB
 	table     string
 	debug     bool
@@ -22,7 +22,7 @@ type Mysql struct {
 	tx        *sql.Tx
 }
 
-var MysqlDrivers = make(map[string]*sql.DB)
+var SqlDrivers = make(map[string]*sql.DB)
 
 // 数据库配置
 type DBConfig struct {
@@ -51,7 +51,7 @@ var columnReg = regexp.MustCompile(`(.+?)\[(\+|-|!|>|<|>=|<=|like)]`)
 func InitMysqlDb(conf *DBConfig) (*sql.DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", conf.DBUser, conf.DBPassword, conf.DBHost, conf.DBPort, conf.DBName)
 
-	if db, ok := MysqlDrivers[dsn]; ok {
+	if db, ok := SqlDrivers[dsn]; ok {
 		return db, nil
 	}
 	mysqlDb, err := sql.Open("mysql", dsn)
@@ -67,45 +67,45 @@ func InitMysqlDb(conf *DBConfig) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	MysqlDrivers[dsn] = mysqlDb
+	SqlDrivers[dsn] = mysqlDb
 	return mysqlDb, nil
 }
 
 // 实例化MySQL
-func NewMysqlDB(conf *DBConfig) (*Mysql, error) {
-	MysqlDrivers, err := InitMysqlDb(conf)
+func NewMysqlDB(conf *DBConfig) (*SqlDB, error) {
+	SqlDrivers, err := InitMysqlDb(conf)
 	if err != nil {
 		return nil, err
 	}
-	mysql := &Mysql{db: MysqlDrivers, debug: conf.DBDebug}
+	mysql := &SqlDB{db: SqlDrivers, debug: conf.DBDebug}
 	return mysql, nil
 }
 
-//func (m *Mysql) Table(tableName string) *DBTable {
-//	return NewMysqlDB(m, tableName)
-//}
+func (m *SqlDB) Table(tableName string) *DBTable {
+	return NewDBTable(m, tableName)
+}
 
 // 开启事务
-func (m *Mysql) BeginTrans() error {
+func (m *SqlDB) BeginTrans() error {
 	var err error
 	m.tx, err = m.db.Begin()
 	return err
 }
 
 // 提交事务
-func (m *Mysql) Commit() error {
+func (m *SqlDB) Commit() error {
 	err := m.tx.Commit()
 	return err
 }
 
 // 回滚事务
-func (m *Mysql) Rollback() error {
+func (m *SqlDB) Rollback() error {
 	err := m.tx.Rollback()
 	return err
 }
 
 // 新增
-func (m *Mysql) Insert(table string, orgData interface{}) (int, bool) {
+func (m *SqlDB) Insert(table string, orgData interface{}) (int, bool) {
 	var columns []string
 	var values []interface{}
 	var valMask []string
@@ -128,9 +128,9 @@ func (m *Mysql) Insert(table string, orgData interface{}) (int, bool) {
 }
 
 // 删除
-func (m *Mysql) Delete(where utils.M, table string) (int, error) {
+func (m *SqlDB) Delete(where utils.M, table string) (int, error) {
 	var values []interface{}
-	whereStr, whereVal := m.processWhere(where, "AND", table)
+	whereStr, whereVal := m.ProcessWhere(where, "AND", table)
 	values = append(values, whereVal)
 	sqlStr := fmt.Sprintf("DELETE FROM %s WHERE %s", table, whereStr)
 
@@ -147,7 +147,7 @@ func (m *Mysql) Delete(where utils.M, table string) (int, error) {
 }
 
 // 更新
-func (m *Mysql) Update(data utils.M, where utils.M, table string) error {
+func (m *SqlDB) Update(data utils.M, where utils.M, table string) error {
 	var values []interface{}
 	var tmp []string
 	for i, v := range data {
@@ -165,7 +165,7 @@ func (m *Mysql) Update(data utils.M, where utils.M, table string) error {
 	sqlStr := fmt.Sprintf("UPDATE %s SET %s", m.FormatColumn(table), strings.Join(tmp, ","))
 
 	if where != nil {
-		whereStr, whereVal := m.processWhere(where, "AND", table)
+		whereStr, whereVal := m.ProcessWhere(where, "AND", table)
 		values = append(values, whereVal)
 		sqlStr = fmt.Sprintf("%s WHERE %s", sqlStr, whereStr)
 	}
@@ -176,7 +176,7 @@ func (m *Mysql) Update(data utils.M, where utils.M, table string) error {
 }
 
 // 查询
-func (m *Mysql) Query(sqlStr string, args ...interface{}) ([]utils.M, error) {
+func (m *SqlDB) Query(sqlStr string, args ...interface{}) ([]utils.M, error) {
 	rows, err := m.db.Query(sqlStr, args...)
 	if err != nil {
 		if m.debug {
@@ -191,8 +191,12 @@ func (m *Mysql) Query(sqlStr string, args ...interface{}) ([]utils.M, error) {
 	return m.FetchAll(rows)
 }
 
+func (m *SqlDB) QueryRow(sqlStr string, args ...interface{}) *sql.Row {
+	return m.db.QueryRow(sqlStr, args...)
+}
+
 // 获取所有数据
-func (m *Mysql) FetchAll(query *sql.Rows) ([]utils.M, error) {
+func (m *SqlDB) FetchAll(query *sql.Rows) ([]utils.M, error) {
 	columns, _ := query.Columns()
 	values := make([]interface{}, len(columns))
 	scans := make([]interface{}, len(columns))
@@ -220,7 +224,7 @@ func (m *Mysql) FetchAll(query *sql.Rows) ([]utils.M, error) {
 }
 
 // 执行SQL
-func (m *Mysql) Exec(sqlStr string, args ...interface{}) (sql.Result, error) {
+func (m *SqlDB) Exec(sqlStr string, args ...interface{}) (sql.Result, error) {
 	var res sql.Result
 	var err error
 	if m.tx != nil {
@@ -240,7 +244,7 @@ func (m *Mysql) Exec(sqlStr string, args ...interface{}) (sql.Result, error) {
 }
 
 // 打印错误
-func (m *Mysql) PrintError(err error) {
+func (m *SqlDB) PrintError(err error) {
 	fmt.Println(m.LastSql)
 	fmt.Println(m.LastArgs)
 	fmt.Println(err)
@@ -248,18 +252,18 @@ func (m *Mysql) PrintError(err error) {
 }
 
 // 获取最后一条错误
-func (m *Mysql) GetLastError() error {
+func (m *SqlDB) GetLastError() error {
 	return m.lastError
 }
 
 // 处理where条件
-func (m *Mysql) processWhere(where utils.M, icon string, table string) (string, []interface{}) {
+func (m *SqlDB) ProcessWhere(where utils.M, icon string, table string) (string, []interface{}) {
 	var whereStrings []string
 	var values []interface{}
 	for i, v := range where {
 		if i == "AND" || i == "OR" {
 			// 递归获取所有查询条件
-			tmpWhere, val := m.processWhere(v.(utils.M), i, table)
+			tmpWhere, val := m.ProcessWhere(v.(utils.M), i, table)
 			whereStrings = append(whereStrings, tmpWhere)
 			values = append(values, val...)
 		} else {
@@ -279,7 +283,7 @@ func (m *Mysql) processWhere(where utils.M, icon string, table string) (string, 
 }
 
 // 格式化where条件
-func (m *Mysql) formatWhere(column string, table string, length int) string {
+func (m *SqlDB) formatWhere(column string, table string, length int) string {
 	filed := m.explainColumn(column)
 
 	columnStr := m.FormatColumn(filed.Field)
@@ -310,7 +314,7 @@ func (m *Mysql) formatWhere(column string, table string, length int) string {
 }
 
 // 解析字段
-func (m *Mysql) explainColumn(column string) *DBColumn {
+func (m *SqlDB) explainColumn(column string) *DBColumn {
 	match := columnReg.FindStringSubmatch(column)
 	filed := &DBColumn{}
 	if len(match) > 0 {
@@ -324,12 +328,12 @@ func (m *Mysql) explainColumn(column string) *DBColumn {
 }
 
 // 格式化字段
-func (m *Mysql) FormatColumn(column string) string {
+func (m *SqlDB) FormatColumn(column string) string {
 	return fmt.Sprintf("`%s`", column)
 }
 
 // 扫描数据到map中
-func (m *Mysql) scan2Map(scans []interface{}, columns []string) interface{} {
+func (m *SqlDB) scan2Map(scans []interface{}, columns []string) interface{} {
 	obj := utils.M{}
 	for i, v := range columns {
 		var val interface{}
@@ -340,7 +344,7 @@ func (m *Mysql) scan2Map(scans []interface{}, columns []string) interface{} {
 }
 
 // 扫描数据到结构体中
-func (m *Mysql) scan2Struct(t reflect.Type, scans []interface{}, columns []string) interface{} {
+func (m *SqlDB) scan2Struct(t reflect.Type, scans []interface{}, columns []string) interface{} {
 	obj := reflect.New(t).Interface()
 	objVal := reflect.ValueOf(obj).Elem()
 	for i, c := range columns {
@@ -356,7 +360,7 @@ func (m *Mysql) scan2Struct(t reflect.Type, scans []interface{}, columns []strin
 }
 
 // 扫描数据到任何类型中
-func (m *Mysql) scan2Any(scans []interface{}, columns []string, i interface{}) interface{} {
+func (m *SqlDB) scan2Any(scans []interface{}, columns []string, i interface{}) interface{} {
 	if i == nil {
 		return m.scan2Map(scans, columns)
 	}
@@ -374,7 +378,7 @@ func (m *Mysql) scan2Any(scans []interface{}, columns []string, i interface{}) i
 }
 
 // 查找tag下标
-func (m *Mysql) findTagOf(t reflect.Type, colName string) int {
+func (m *SqlDB) findTagOf(t reflect.Type, colName string) int {
 	for i := 0; i < t.NumField(); i++ {
 		val, ok := t.Field(i).Tag.Lookup("json")
 		if ok && val == colName {
@@ -385,7 +389,7 @@ func (m *Mysql) findTagOf(t reflect.Type, colName string) int {
 }
 
 // 关闭数据库
-func (m *Mysql) Close() {
+func (m *SqlDB) Close() {
 	err := m.db.Close()
 	if err != nil {
 		log.Fatal(err)
