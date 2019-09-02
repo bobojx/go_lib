@@ -74,14 +74,12 @@ func RandString(num int) string {
 // 机构转map
 // fields指定转换的字段
 func Struct2Map(obj interface{}, fields []string) map[string]interface{} {
-	var t reflect.Type
-	var v reflect.Value
+	t := reflect.TypeOf(obj)
+	v := reflect.ValueOf(obj)
+	// 如果类型为指针，则返回一个类型的元素类型。
 	if reflect.TypeOf(obj).Kind() == reflect.Ptr {
 		t = reflect.TypeOf(obj).Elem()
 		v = reflect.ValueOf(obj).Elem()
-	} else {
-		t = reflect.TypeOf(obj)
-		v = reflect.ValueOf(obj)
 	}
 
 	data := make(map[string]interface{})
