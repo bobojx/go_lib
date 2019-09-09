@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -120,4 +121,15 @@ func StringIndexOf(arr []string, search string) int {
 // api接口输出
 func ApiOutput(status bool, msg string, data interface{}) *map[string]interface{} {
 	return &map[string]interface{}{"status": status, "msg": msg, "data": data}
+}
+
+// 打印任何数据
+func PrintAny(any interface{}) {
+	data, err := json.MarshalIndent(any, "", "  ")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Printf("%s\n", data)
 }

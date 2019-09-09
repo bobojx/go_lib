@@ -39,6 +39,7 @@ type DBTable struct {
 	columnType interface{} // 字段类型
 }
 
+// 验证字段正则
 var fieldReg = regexp.MustCompile(`(.+?)\[(.+?)\]`)
 
 // 新建一个table处理类
