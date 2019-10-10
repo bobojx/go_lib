@@ -28,7 +28,6 @@ var globalSession *mgo.Session
 // 初始化数据库
 func InitMongo(conf *MongoDBConfig) error {
 	var err error
-	fmt.Println(conf.BuildDsn())
 	globalSession, err = mgo.Dial(conf.BuildDsn())
 	if err != nil {
 		return err

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	_ "github.com/go-sql-driver/mysql"
 	"go_lib/utils"
 	"log"
 	"reflect"
@@ -54,6 +55,7 @@ func InitMysqlDb(conf *DBConfig) (*sql.DB, error) {
 	if db, ok := SqlDrivers[dsn]; ok {
 		return db, nil
 	}
+	fmt.Println(dsn)
 	mysqlDb, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, err
@@ -414,4 +416,49 @@ func ConvertData(orgData interface{}) (DM, error) {
 	default:
 		return nil, errors.New("not support this data")
 	}
+}
+
+// 构建数据表结构体
+func BuildTableStruct(tabName, dbName string, dbConf *DBConfig) {
+	types := map[string]string{
+		"int":      "int",
+		"tinyint":  "int",
+		"smallint": "int",
+		"varchar":  "string",
+		"char":     "string",
+		"text":     "string",
+		"tinytext": "string",
+		"double":   "float64",
+		"float":    "float64",
+	}
+
+	db, err := NewMysqlDB(dbConf)
+	if err != nil {
+		panic(err)
+	}
+	res, err := db.Table("COLUMNS").Where(utils.M{"TABLE_NAME": tabName, "TABLE_SCHEMA": dbName}, "").Order(utils.M{"ORDINAL_POSITION": "ASC"}).Query().Result()
+	if err != nil {
+		panic(err)
+	}
+
+	var tmp []string
+
+	var (
+		colName    string
+		colType    string
+		colComment string
+	)
+
+	for _, row := range res {
+		colName = row["COLUMN_NAME"].(string)
+		colType = row["DATA_TYPE"].(string)
+		colComment = row["COLUMN_COMMENT"].(string)
+		tmp = append(tmp, fmt.Sprintf("\t%v %v `json:\"%v\" bson:\"%v\"` // %v", utils.Under2Hump(colName), types[colType], colName, colName, colComment))
+	}
+
+	fmt.Println(fmt.Sprintf("type %s struct {", tabName))
+	for _, v := range tmp {
+		fmt.Println(v)
+	}
+	fmt.Println("}")
 }

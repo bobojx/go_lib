@@ -1,21 +1,22 @@
 package database
 
 import (
-	"fmt"
 	"testing"
 )
 
-type Person struct {
-	Name string `json:"name"`
-	Age  int    `json:"age"`
-	Sex  string `json:"sex"`
+var dbConf = &DBConfig{
+	DBHost:     "168.168.0.10",
+	DBPort:     "3306",
+	DBName:     "information_schema",
+	DBUser:     "root",
+	DBPassword: "kKie93jgUrn!k",
+	DBOpenSize: 200,
+	DBIdleSize: 100,
+	DBDebug:    true,
 }
 
-func TestInitMysqlDb(t *testing.T) {
-	p := Person{Name: "张三", Age: 18, Sex: "男"}
-	data, err := ConvertData(&p)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(data)
+// 测试生成数据表结构体
+func TestBuildTableStruct(t *testing.T) {
+
+	BuildTableStruct("t_agent", "pcbx_life_insurance", dbConf)
 }
