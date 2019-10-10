@@ -17,6 +17,5 @@ var dbConf = &DBConfig{
 
 // 测试生成数据表结构体
 func TestBuildTableStruct(t *testing.T) {
-
 	BuildTableStruct("t_agent", "pcbx_life_insurance", dbConf)
 }
