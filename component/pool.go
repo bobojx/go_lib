@@ -6,24 +6,20 @@ import (
 
 // 协程池
 type GoroutinePool struct {
-	Queue    chan interface{} // 队列池
-	Number   int              // 协程数
-	Total    int              // 数据总数
-	Worker   func(obj ...interface{}) bool
-	callback func() // 执行完成回调方法
-	wait     sync.WaitGroup
+	Queue          chan interface{} // 队列池
+	Number         int              // 协程数
+	Total          int              // 数据总数
+	Worker         func(obj ...interface{}) bool
+	finishCallback func() // 执行完成回调方法
+	wait           sync.WaitGroup
 }
 
 // 创建协程池
 func NewPool(number int, worker func(obj ...interface{}) bool) *GoroutinePool {
-
 	return &GoroutinePool{
-		Queue:    nil,
-		Number:   number,
-		Total:    0,
-		Worker:   worker,
-		callback: nil,
-		wait:     sync.WaitGroup{},
+		Number: number,
+		Worker: worker,
+		wait:   sync.WaitGroup{},
 	}
 }
 
@@ -45,8 +41,8 @@ func (g *GoroutinePool) Start() {
 		}(i)
 	}
 	g.wait.Wait()
-	if g.callback != nil {
-		g.callback()
+	if g.finishCallback != nil {
+		g.finishCallback()
 	}
 	g.Stop()
 }
@@ -54,4 +50,19 @@ func (g *GoroutinePool) Start() {
 // 关闭
 func (g *GoroutinePool) Stop() {
 	close(g.Queue)
+}
+
+// 添加task任务到队列池
+func (g *GoroutinePool) AddTaskInterface(task []interface{}) {
+	total := len(task)
+	g.Total = total
+	g.Queue = make(chan interface{}, total)
+	for _, v := range task {
+		g.Queue <- v
+	}
+}
+
+// 设置完成时候的回调方法
+func (g *GoroutinePool) FinishCallBack(callback func()) {
+	g.finishCallback = callback
 }
