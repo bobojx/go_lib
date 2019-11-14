@@ -1,0 +1,57 @@
+package component
+
+import (
+	"sync"
+)
+
+// 协程池
+type GoroutinePool struct {
+	Queue    chan interface{} // 队列池
+	Number   int              // 协程数
+	Total    int              // 数据总数
+	Worker   func(obj ...interface{}) bool
+	callback func() // 执行完成回调方法
+	wait     sync.WaitGroup
+}
+
+// 创建协程池
+func NewPool(number int, worker func(obj ...interface{}) bool) *GoroutinePool {
+
+	return &GoroutinePool{
+		Queue:    nil,
+		Number:   number,
+		Total:    0,
+		Worker:   worker,
+		callback: nil,
+		wait:     sync.WaitGroup{},
+	}
+}
+
+// 开始执行
+func (g *GoroutinePool) Start() {
+	for i := 0; i < g.Number; i++ {
+		g.wait.Add(1)
+		go func(index int) {
+			isDone := true
+			for isDone {
+				select {
+				case task := <-g.Queue:
+					g.Worker(task, index)
+				default:
+					isDone = false
+				}
+			}
+			g.wait.Done()
+		}(i)
+	}
+	g.wait.Wait()
+	if g.callback != nil {
+		g.callback()
+	}
+	g.Stop()
+}
+
+// 关闭
+func (g *GoroutinePool) Stop() {
+	close(g.Queue)
+}
