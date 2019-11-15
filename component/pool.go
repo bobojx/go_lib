@@ -27,12 +27,13 @@ func NewPool(number int, worker func(obj ...interface{}) bool) *GoroutinePool {
 func (g *GoroutinePool) Start() {
 	for i := 0; i < g.Number; i++ {
 		g.wait.Add(1)
+		// 将i作为变量传入go程闭包，防止变量共享问题
 		go func(index int) {
 			isDone := true
 			for isDone {
 				select {
 				case task := <-g.Queue:
-					g.Worker(task, index)
+					g.Worker(task, i)
 				default:
 					isDone = false
 				}
